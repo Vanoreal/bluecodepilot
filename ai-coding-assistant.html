@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>/// codepilot — asisten koding AI</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+  :root{
+    --bg: #0b0f0e;
+    --panel: #101613;
+    --panel-2: #141c19;
+    --line: #22302b;
+    --text: #d9e5df;
+    --dim: #7c9089;
+    --accent: #7CFF9B;
+    --accent-dim: #3fae5c;
+    --amber: #ffb454;
+    --danger: #ff6b6b;
+    --mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse at top left, rgba(124,255,155,0.05), transparent 45%),
+      radial-gradient(ellipse at bottom right, rgba(63,174,92,0.06), transparent 50%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:14px 22px;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+    flex-shrink:0;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-family:var(--mono);
+    font-size:14px;
+    letter-spacing:0.02em;
+  }
+  .brand .dots{display:flex; gap:6px;}
+  .brand .dots span{width:9px;height:9px;border-radius:50%;display:inline-block;}
+  .brand .dots span:nth-child(1){background:#ff6b6b;}
+  .brand .dots span:nth-child(2){background:#ffb454;}
+  .brand .dots span:nth-child(3){background:var(--accent);}
+  .brand b{color:var(--accent); font-weight:700;}
+  .brand .path{color:var(--dim);}
+  .topbar-right{display:flex; gap:8px; align-items:center;}
+  select, .clear-btn{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    color:var(--text);
+    font-family:var(--mono);
+    font-size:12px;
+    padding:7px 10px;
+    border-radius:6px;
+    cursor:pointer;
+  }
+  select:hover, .clear-btn:hover{border-color:var(--accent-dim);}
+
+  /* ---------- layout ---------- */
+  .wrap{
+    flex:1;
+    display:flex;
+    min-height:0;
+  }
+  .sidebar{
+    width:230px;
+    flex-shrink:0;
+    border-right:1px solid var(--line);
+    padding:18px 14px;
+    background:rgba(255,255,255,0.01);
+    overflow-y:auto;
+  }
+  .sidebar h4{
+    font-family:var(--mono);
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:0.12em;
+    color:var(--dim);
+    margin:0 0 10px 2px;
+  }
+  .preset{
+    display:block;
+    width:100%;
+    text-align:left;
+    background:transparent;
+    border:1px solid transparent;
+    color:var(--text);
+    font-family:var(--sans);
+    font-size:12.5px;
+    padding:9px 10px;
+    border-radius:7px;
+    cursor:pointer;
+    margin-bottom:4px;
+    line-height:1.4;
+  }
+  .preset:hover{background:var(--panel-2); border-color:var(--line);}
+  .preset .tag{
+    display:block;
+    font-family:var(--mono);
+    font-size:10px;
+    color:var(--accent-dim);
+    margin-bottom:2px;
+  }
+  .sidebar-foot{
+    margin-top:22px;
+    padding-top:14px;
+    border-top:1px solid var(--line);
+    font-family:var(--mono);
+    font-size:10.5px;
+    color:var(--dim);
+    line-height:1.6;
+  }
+  .sidebar-foot b{color:var(--accent);}
+
+  .main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+  }
+
+  /* ---------- chat area ---------- */
+  .chat{
+    flex:1;
+    overflow-y:auto;
+    padding:24px 0;
+  }
+  .chat-inner{
+    max-width:820px;
+    margin:0 auto;
+    padding:0 24px;
+  }
+  .empty{
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    color:var(--dim);
+    padding:40px 20px;
+  }
+  .empty .glyph{
+    font-family:var(--mono);
+    font-size:34px;
+    color:var(--accent);
+    margin-bottom:14px;
+    text-shadow:0 0 24px rgba(124,255,155,0.35);
+  }
+  .empty h2{
+    font-size:17px;
+    color:var(--text);
+    margin:0 0 6px;
+    font-weight:600;
+  }
+  .empty p{margin:0; font-size:13px; max-width:380px; line-height:1.6;}
+
+  .msg{
+    display:flex;
+    gap:12px;
+    margin-bottom:22px;
+    align-items:flex-start;
+  }
+  .avatar{
+    width:26px;height:26px;
+    border-radius:6px;
+    flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);
+    font-size:11px;
+    font-weight:700;
+    margin-top:2px;
+  }
+  .msg.user .avatar{background:var(--panel-2); border:1px solid var(--line); color:var(--dim);}
+  .msg.ai .avatar{background:rgba(124,255,155,0.12); border:1px solid var(--accent-dim); color:var(--accent);}
+  .bubble{
+    flex:1;
+    min-width:0;
+    padding-top:2px;
+  }
+  .bubble .who{
+    font-family:var(--mono);
+    font-size:10.5px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--dim);
+    margin-bottom:5px;
+  }
+  .bubble .content{
+    font-size:14px;
+    line-height:1.65;
+    color:var(--text);
+    white-space:pre-wrap;
+    word-wrap:break-word;
+  }
+  .bubble .content p{margin:0 0 10px;}
+  .bubble .content p:last-child{margin-bottom:0;}
+
+  .bubble .content h1,
+  .bubble .content h2,
+  .bubble .content h3{
+    color:var(--text);
+    margin:16px 0 8px;
+    line-height:1.35;
+    font-weight:700;
+  }
+  .bubble .content h1{font-size:18px;}
+  .bubble .content h2{font-size:16px;}
+  .bubble .content h3{font-size:14.5px; color:var(--accent);}
+  .bubble .content ul,
+  .bubble .content ol{
+    margin:6px 0 12px;
+    padding-left:22px;
+  }
+  .bubble .content li{margin-bottom:4px;}
+  .bubble .content a{color:var(--accent); text-decoration:underline;}
+  .bubble .content table{
+    border-collapse:collapse;
+    width:100%;
+    margin:10px 0 14px;
+    font-size:13px;
+    overflow-x:auto;
+    display:block;
+  }
+  .bubble .content thead{display:table; width:100%; table-layout:fixed;}
+  .bubble .content tbody{display:table; width:100%; table-layout:fixed;}
+  .bubble .content th, .bubble .content td{
+    border:1px solid var(--line);
+    padding:6px 10px;
+    text-align:left;
+  }
+  .bubble .content th{background:var(--panel-2); color:var(--accent); font-family:var(--mono); font-size:11.5px;}
+  .lang-badge{
+    display:inline-block;
+    font-family:var(--mono);
+    font-size:9.5px;
+    color:var(--accent-dim);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:2px 6px;
+    margin-left:8px;
+    vertical-align:middle;
+  }
+  .status-line{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--dim);
+    padding:2px 0;
+  }
+  .status-line.retry{color:var(--amber);}
+  .err-actions{margin-top:8px;}
+  .retry-btn{
+    background:transparent;
+    border:1px solid var(--danger);
+    color:var(--danger);
+    font-family:var(--mono);
+    font-size:11px;
+    padding:5px 10px;
+    border-radius:6px;
+    cursor:pointer;
+  }
+  .retry-btn:hover{background:rgba(255,107,107,0.1);}
+
+  .codeblock{
+    margin:10px 0;
+    border:1px solid var(--line);
+    border-radius:8px;
+    overflow:hidden;
+    background:#0a0e0c;
+  }
+  .codeblock .cb-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:7px 12px;
+    background:var(--panel-2);
+    border-bottom:1px solid var(--line);
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--dim);
+  }
+  .codeblock .cb-head .cb-actions{display:flex; gap:6px;}
+  .codeblock .cb-head button{
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--dim);
+    font-family:var(--mono);
+    font-size:10.5px;
+    padding:3px 8px;
+    border-radius:5px;
+    cursor:pointer;
+  }
+  .codeblock .cb-head button:hover{color:var(--accent); border-color:var(--accent-dim);}
+  .codeblock pre{
+    margin:0;
+    padding:13px 14px;
+    overflow-x:auto;
+    font-family:var(--mono);
+    font-size:12.5px;
+    line-height:1.55;
+    color:#c9f4d4;
+  }
+
+  .thinking{
+    display:flex;
+    gap:6px;
+    padding:4px 0;
+  }
+  .thinking span{
+    width:6px;height:6px;border-radius:50%;
+    background:var(--accent);
+    animation:pulse 1.1s infinite ease-in-out;
+  }
+  .thinking span:nth-child(2){animation-delay:0.15s;}
+  .thinking span:nth-child(3){animation-delay:0.3s;}
+  @keyframes pulse{
+    0%,80%,100%{opacity:0.25; transform:scale(0.8);}
+    40%{opacity:1; transform:scale(1);}
+  }
+
+  .err{
+    border:1px solid rgba(255,107,107,0.35);
+    background:rgba(255,107,107,0.06);
+    color:#ffb3b3;
+    padding:10px 12px;
+    border-radius:8px;
+    font-family:var(--mono);
+    font-size:12px;
+  }
+
+  /* ---------- input ---------- */
+  .inputbar{
+    border-top:1px solid var(--line);
+    padding:16px 24px 20px;
+    background:linear-gradient(0deg, rgba(255,255,255,0.015), transparent);
+    flex-shrink:0;
+  }
+  .inputbar-inner{
+    max-width:820px;
+    margin:0 auto;
+  }
+  .input-shell{
+    display:flex;
+    align-items:flex-end;
+    gap:10px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:10px 10px 10px 16px;
+    transition:border-color 0.15s;
+  }
+  .input-shell:focus-within{border-color:var(--accent-dim);}
+  .input-shell textarea{
+    flex:1;
+    background:transparent;
+    border:none;
+    outline:none;
+    resize:none;
+    color:var(--text);
+    font-family:var(--sans);
+    font-size:14px;
+    line-height:1.5;
+    max-height:160px;
+    padding:6px 0;
+  }
+  .input-shell textarea::placeholder{color:var(--dim);}
+  .send-btn{
+    background:var(--accent);
+    border:none;
+    color:#04140a;
+    font-family:var(--mono);
+    font-weight:700;
+    font-size:12px;
+    padding:10px 16px;
+    border-radius:8px;
+    cursor:pointer;
+    flex-shrink:0;
+    transition:transform 0.1s, opacity 0.15s;
+  }
+  .send-btn:hover:not(:disabled){transform:translateY(-1px);}
+  .send-btn:disabled{opacity:0.35; cursor:not-allowed;}
+  .hint{
+    font-family:var(--mono);
+    font-size:10.5px;
+    color:var(--dim);
+    text-align:center;
+    margin-top:9px;
+  }
+  .hint kbd{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:1px 5px;
+    font-family:var(--mono);
+  }
+
+  ::-webkit-scrollbar{width:9px; height:9px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--line); border-radius:6px;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--accent-dim);}
+
+  @media (max-width:760px){
+    .sidebar{display:none;}
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="dots"><span></span><span></span><span></span></div>
+      <span><b>codepilot</b> <span class="path">~/asisten-koding</span></span>
+    </div>
+    <div class="topbar-right">
+      <select id="langSelect">
+        <option value="">bahasa: otomatis</option>
+        <option value="python">Python</option>
+        <option value="javascript">JavaScript</option>
+        <option value="typescript">TypeScript</option>
+        <option value="html-css">HTML/CSS</option>
+        <option value="java">Java</option>
+        <option value="cpp">C++</option>
+        <option value="go">Go</option>
+        <option value="rust">Rust</option>
+        <option value="sql">SQL</option>
+      </select>
+      <button class="clear-btn" id="exportBtn">export .md</button>
+      <button class="clear-btn" id="clearBtn">bersihkan chat</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="sidebar">
+      <h4>Mulai cepat</h4>
+      <button class="preset" data-p="Tolong buatkan fungsi untuk membalik sebuah string tanpa menggunakan fungsi bawaan reverse.">
+        <span class="tag">01 · latihan</span>Balik string manual
+      </button>
+      <button class="preset" data-p="Jelaskan perbedaan antara let, const, dan var di JavaScript beserta contoh kodenya.">
+        <span class="tag">02 · konsep</span>let vs const vs var
+      </button>
+      <button class="preset" data-p="Buatkan REST API sederhana dengan Node.js dan Express untuk CRUD data buku.">
+        <span class="tag">03 · proyek</span>REST API CRUD Express
+      </button>
+      <button class="preset" data-p="Kode saya error 'undefined is not a function', tolong bantu saya cari penyebabnya. Apa saja penyebab umum error ini?">
+        <span class="tag">04 · debug</span>Debug error umum
+      </button>
+      <button class="preset" data-p="Review kode Python saya dan berikan saran agar lebih rapi dan efisien (best practices).">
+        <span class="tag">05 · review</span>Code review & best practice
+      </button>
+      <button class="preset" data-p="Buatkan algoritma binary search lengkap dengan penjelasan kompleksitas Big-O nya.">
+        <span class="tag">06 · algoritma</span>Binary search + Big-O
+      </button>
+
+      <div class="sidebar-foot">
+        Ditenagai oleh <b>Claude</b> — model dipanggil langsung dari browser Anda via Anthropic API. Tidak ada data yang disimpan di server luar.
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="chat" id="chat">
+        <div class="chat-inner" id="chatInner">
+          <div class="empty" id="emptyState">
+            <div class="glyph">&lt;/&gt;</div>
+            <h2>Asisten koding siap membantu</h2>
+            <p>Tanyakan apa saja: menulis fungsi, membongkar bug, menjelaskan konsep, atau membangun proyek dari nol. Pilih contoh di sebelah kiri atau ketik langsung di bawah.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="inputbar">
+        <div class="inputbar-inner">
+          <div class="input-shell">
+            <textarea id="userInput" rows="1" placeholder="Tulis pertanyaan koding kamu di sini..."></textarea>
+            <button class="send-btn" id="sendBtn">KIRIM →</button>
+          </div>
+          <div class="hint">Tekan <kbd>Enter</kbd> untuk kirim · <kbd>Shift+Enter</kbd> untuk baris baru</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const chat = document.getElementById('chat');
+  const chatInner = document.getElementById('chatInner');
+  const emptyState = document.getElementById('emptyState');
+  const userInput = document.getElementById('userInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const langSelect = document.getElementById('langSelect');
+  const clearBtn = document.getElementById('clearBtn');
+  const exportBtn = document.getElementById('exportBtn');
+
+  const STORAGE_KEY = 'codepilot-history';
+  let history = [];   // dikirim ke API: [{role, content}]
+  let renderLog = []; // untuk export .md: [{role, text}]
+  let isLoading = false;
+  let lastFailedText = null; // untuk tombol "coba lagi"
+
+  /* ============ RIWAYAT PERSISTEN (window.storage, bukan localStorage) ============ */
+  async function loadHistory(){
+    try{
+      const res = await window.storage.get(STORAGE_KEY, false);
+      if (res && res.value){
+        const saved = JSON.parse(res.value);
+        history = saved.history || [];
+        renderLog = saved.renderLog || [];
+        if (renderLog.length){
+          emptyState.style.display = 'none';
+          renderLog.forEach(item => paintMessage(item.role, item.text));
+        }
+      }
+    } catch(e){
+      // belum ada riwayat tersimpan — mulai dari kosong, itu wajar
+    }
+  }
+
+  async function saveHistory(){
+    try{
+      await window.storage.set(STORAGE_KEY, JSON.stringify({ history, renderLog }), false);
+    } catch(e){
+      console.warn('Gagal menyimpan riwayat:', e);
+    }
+  }
+
+  async function wipeHistory(){
+    try{ await window.storage.delete(STORAGE_KEY, false); } catch(e){ /* tidak apa jika belum ada */ }
+  }
+
+  /* ============ deteksi bahasa otomatis dari isi pertanyaan ============ */
+  const LANG_HINTS = {
+    python: /\bpython\b|def\s+\w+\(|import\s+\w+|print\(/i,
+    javascript: /\bjavascript\b|\bjs\b|const\s+\w+\s*=|=>|console\.log/i,
+    typescript: /\btypescript\b|\bts\b|: *string|: *number|interface\s+\w+/i,
+    'html-css': /\bhtml\b|\bcss\b|<div|<html/i,
+    java: /\bjava\b(?!script)|public\s+class|System\.out\.println/i,
+    cpp: /\bc\+\+\b|#include\s*<|std::/i,
+    go: /\bgolang\b|\bgo\b func|package main/i,
+    rust: /\brust\b|fn\s+main|let mut/i,
+    sql: /\bsql\b|select .+ from|insert into/i
+  };
+  function detectLanguage(text){
+    for (const [key, re] of Object.entries(LANG_HINTS)){
+      if (re.test(text)) return key;
+    }
+    return null;
+  }
+
+  /* ============ util ============ */
+  function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+  function escapeHtml(str){
+    return str
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;');
+  }
+
+  // markdown renderer: heading, list, tabel, bold/italic/inline-code, fenced code + highlight.js
+  function renderContent(text){
+    // kalau jumlah ``` ganjil, berarti ada fence yang belum ketutup (misal respons kepotong).
+    // tutup paksa di akhir biar tetep dianggap code block, bukan jatoh ke teks biasa.
+    const fenceCount = (text.match(/```/g) || []).length;
+    if (fenceCount % 2 === 1) text += '\n```';
+    // fence bisa berupa ```lang atau ```lang:nama-file.ext
+    const segments = text.split(/```([\w-]*)(?::([^\n]+))?\n?([\s\S]*?)```/g);
+    let html = '';
+    for (let i = 0; i < segments.length; i++){
+      if (i % 4 === 0){
+        html += renderTextBlock(segments[i]);
+      } else if (i % 4 === 1){
+        const lang = (segments[i] || '').toLowerCase();
+        const filename = segments[i+1] || '';
+        const code = segments[i+2] || '';
+        html += renderCodeBlock(lang, code, filename);
+        i += 2;
+      }
+    }
+    return html || renderTextBlock(text);
+  }
+
+  function inlineFormat(str){
+    let seg = escapeHtml(str);
+    seg = seg.replace(/`([^`]+)`/g, '<code style="background:var(--panel-2);padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:0.9em;">$1</code>');
+    seg = seg.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    seg = seg.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+    seg = seg.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    return seg;
+  }
+
+  function renderTextBlock(raw){
+    const lines = raw.split('\n');
+    let html = '';
+    let i = 0;
+    let paraBuf = [];
+
+    function flushPara(){
+      if (paraBuf.length){
+        html += `<p>${paraBuf.map(inlineFormat).join('<br>')}</p>`;
+        paraBuf = [];
+      }
+    }
+
+    while (i < lines.length){
+      const line = lines[i];
+
+      // heading
+      const h = line.match(/^(#{1,3})\s+(.*)$/);
+      if (h){
+        flushPara();
+        const level = h[1].length;
+        html += `<h${level}>${inlineFormat(h[2])}</h${level}>`;
+        i++; continue;
+      }
+
+      // tabel markdown: | a | b |  lalu baris pemisah |---|---|
+      if (/^\s*\|.*\|\s*$/.test(line) && lines[i+1] && /^\s*\|?[\s:-]+\|[\s:|-]*$/.test(lines[i+1])){
+        flushPara();
+        const headerCells = line.split('|').map(c => c.trim()).filter((c,idx,arr) => !(idx===0 && c==='') && !(idx===arr.length-1 && c===''));
+        let bodyRows = [];
+        let j = i + 2;
+        while (j < lines.length && /^\s*\|.*\|\s*$/.test(lines[j])){
+          const cells = lines[j].split('|').map(c => c.trim()).filter((c,idx,arr) => !(idx===0 && c==='') && !(idx===arr.length-1 && c===''));
+          bodyRows.push(cells);
+          j++;
+        }
+        html += '<table><thead><tr>' + headerCells.map(c => `<th>${inlineFormat(c)}</th>`).join('') + '</tr></thead><tbody>';
+        bodyRows.forEach(r => { html += '<tr>' + r.map(c => `<td>${inlineFormat(c)}</td>`).join('') + '</tr>'; });
+        html += '</tbody></table>';
+        i = j; continue;
+      }
+
+      // list (- / * / angka.)
+      const isBullet = /^\s*[-*]\s+/.test(line);
+      const isNumbered = /^\s*\d+\.\s+/.test(line);
+      if (isBullet || isNumbered){
+        flushPara();
+        const tag = isNumbered ? 'ol' : 'ul';
+        let items = [];
+        let j = i;
+        while (j < lines.length && (isNumbered ? /^\s*\d+\.\s+/.test(lines[j]) : /^\s*[-*]\s+/.test(lines[j]))){
+          items.push(lines[j].replace(/^\s*(?:[-*]|\d+\.)\s+/, ''));
+          j++;
+        }
+        html += `<${tag}>` + items.map(it => `<li>${inlineFormat(it)}</li>`).join('') + `</${tag}>`;
+        i = j; continue;
+      }
+
+      if (line.trim() === ''){
+        flushPara();
+        i++; continue;
+      }
+
+      paraBuf.push(line);
+      i++;
+    }
+    flushPara();
+    return html;
+  }
+
+  // mapping bahasa -> ekstensi file, dipakai kalau AI nggak kasih nama file eksplisit
+  const LANG_EXT = {
+    html:'html', htm:'html', css:'css', javascript:'js', js:'js', jsx:'jsx',
+    typescript:'ts', ts:'ts', tsx:'tsx', json:'json', python:'py', py:'py',
+    pawn:'pwn', pwn:'pwn', c:'c', cpp:'cpp', 'c++':'cpp', java:'java',
+    php:'php', sql:'sql', bash:'sh', sh:'sh', shell:'sh', yaml:'yaml',
+    yml:'yaml', markdown:'md', md:'md', xml:'xml', plaintext:'txt', text:'txt'
+  };
+
+  function guessFilename(lang, filename){
+    if (filename) return filename.trim();
+    const ext = LANG_EXT[lang] || (lang || 'txt');
+    return `code-${Math.random().toString(36).slice(2,7)}.${ext}`;
+  }
+
+  function renderCodeBlock(lang, code, filename){
+    const id = 'cb_' + Math.random().toString(36).slice(2,9);
+    const cleanCode = code.replace(/\n$/,'');
+    const fname = guessFilename(lang, filename);
+    let highlighted;
+    try{
+      if (lang && window.hljs && hljs.getLanguage(lang)){
+        highlighted = hljs.highlight(cleanCode, { language: lang }).value;
+      } else if (window.hljs){
+        highlighted = hljs.highlightAuto(cleanCode).value;
+      } else {
+        highlighted = escapeHtml(cleanCode);
+      }
+    } catch(e){
+      highlighted = escapeHtml(cleanCode);
+    }
+    return `<div class="codeblock" data-filename="${escapeHtml(fname)}">
+      <div class="cb-head">
+        <span>${escapeHtml(filename ? fname : (lang || 'code'))}</span>
+        <div class="cb-actions">
+          <button onclick="downloadCode('${id}', '${escapeHtml(fname).replace(/'/g,"\\'")}', this)">unduh</button>
+          <button onclick="copyCode('${id}', this)">salin</button>
+        </div>
+      </div>
+      <pre><code id="${id}" class="hljs language-${escapeHtml(lang || 'plaintext')}">${highlighted}</code></pre>
+    </div>`;
+  }
+
+  window.copyCode = function(id, btn){
+    const code = document.getElementById(id).textContent;
+    navigator.clipboard.writeText(code).then(() => {
+      const old = btn.textContent;
+      btn.textContent = 'tersalin!';
+      setTimeout(() => btn.textContent = old, 1400);
+    });
+  };
+
+  window.downloadCode = function(id, filename, btn){
+    const code = document.getElementById(id).textContent;
+    const blob = new Blob([code], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    if (btn){
+      const old = btn.textContent;
+      btn.textContent = 'terunduh!';
+      setTimeout(() => btn.textContent = old, 1400);
+    }
+  };
+
+  // unduh semua kotak kode dalam satu elemen pesan, dipakai buat auto-download
+  function downloadAllCodeBlocksIn(container){
+    const blocks = container.querySelectorAll('.codeblock');
+    blocks.forEach(block => {
+      const codeEl = block.querySelector('code');
+      const fname = block.getAttribute('data-filename') || 'code.txt';
+      if (codeEl) downloadCode(codeEl.id, fname, null);
+    });
+    return blocks.length;
+  }
+
+  /* ============ render pesan ke DOM ============ */
+  function paintMessage(role, text){
+    emptyState.style.display = 'none';
+    const msg = document.createElement('div');
+    msg.className = 'msg ' + (role === 'user' ? 'user' : 'ai');
+    msg.innerHTML = `
+      <div class="avatar">${role === 'user' ? 'YOU' : 'AI'}</div>
+      <div class="bubble">
+        <div class="who">${role === 'user' ? 'Kamu' : 'codepilot'}</div>
+        <div class="content">${role === 'user' ? `<p>${escapeHtml(text)}</p>` : renderContent(text)}</div>
+      </div>
+    `;
+    chatInner.appendChild(msg);
+    chat.scrollTop = chat.scrollHeight;
+    return msg;
+  }
+
+  function addStreamingMessage(){
+    emptyState.style.display = 'none';
+    const msg = document.createElement('div');
+    msg.className = 'msg ai';
+    msg.id = 'streamMsg';
+    msg.innerHTML = `
+      <div class="avatar">AI</div>
+      <div class="bubble">
+        <div class="who">codepilot</div>
+        <div class="thinking" id="thinkingDots"><span></span><span></span><span></span></div>
+        <div class="content" id="streamContent"></div>
+      </div>
+    `;
+    chatInner.appendChild(msg);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function updateStreamingMessage(partialText){
+    const dots = document.getElementById('thinkingDots');
+    if (dots) dots.remove();
+    const contentEl = document.getElementById('streamContent');
+    if (contentEl){
+      // selama streaming tampilkan teks polos dulu (ringan), markdown lengkap dipasang saat selesai
+      contentEl.textContent = partialText;
+      chat.scrollTop = chat.scrollHeight;
+    }
+  }
+
+  function finalizeStreamingMessage(fullText){
+    const msg = document.getElementById('streamMsg');
+    if (msg){
+      msg.removeAttribute('id');
+      const contentEl = msg.querySelector('.content');
+      contentEl.removeAttribute('id');
+      contentEl.innerHTML = renderContent(fullText);
+    }
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function removeStreamingMessage(){
+    const el = document.getElementById('streamMsg');
+    if (el) el.remove();
+  }
+
+  function addStatusLine(text, isRetry){
+    const msg = document.createElement('div');
+    msg.className = 'status-line' + (isRetry ? ' retry' : '');
+    msg.textContent = text;
+    msg.id = 'statusLine';
+    chatInner.appendChild(msg);
+    chat.scrollTop = chat.scrollHeight;
+    return msg;
+  }
+  function removeStatusLine(){
+    const el = document.getElementById('statusLine');
+    if (el) el.remove();
+  }
+
+  function addError(text, canRetry){
+    emptyState.style.display = 'none';
+    const msg = document.createElement('div');
+    msg.className = 'msg ai';
+    msg.innerHTML = `
+      <div class="avatar">!</div>
+      <div class="bubble">
+        <div class="who">error</div>
+        <div class="err">${escapeHtml(text)}</div>
+        ${canRetry ? '<div class="err-actions"><button class="retry-btn" id="manualRetryBtn">coba lagi</button></div>' : ''}
+      </div>
+    `;
+    chatInner.appendChild(msg);
+    chat.scrollTop = chat.scrollHeight;
+    if (canRetry){
+      document.getElementById('manualRetryBtn').addEventListener('click', () => {
+        msg.remove();
+        send(true);
+      });
+    }
+  }
+
+  /* ============ pemanggilan API: retry otomatis + streaming ============ */
+  async function fetchWithRetry(url, options, maxRetries = 2){
+    let attempt = 0;
+    while (true){
+      try{
+        const res = await fetch(url, options);
+        if ((res.status === 429 || res.status >= 500) && attempt < maxRetries){
+          attempt++;
+          addStatusLine(`Server sibuk, mencoba lagi (${attempt}/${maxRetries})...`, true);
+          await sleep(700 * attempt);
+          removeStatusLine();
+          continue;
+        }
+        return res;
+      } catch(networkErr){
+        if (attempt < maxRetries){
+          attempt++;
+          addStatusLine(`Koneksi gagal, mencoba lagi (${attempt}/${maxRetries})...`, true);
+          await sleep(700 * attempt);
+          removeStatusLine();
+          continue;
+        }
+        throw networkErr;
+      }
+    }
+  }
+
+  async function streamMessages(body, onDelta){
+    const response = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, stream: true })
+    });
+
+    if (!response.ok){
+      let msg = `HTTP ${response.status}`;
+      try{ const j = await response.json(); msg = (j.error && j.error.message) || msg; } catch(e){}
+      throw new Error(msg);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let fullText = '';
+
+    while (true){
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split('\n\n');
+      buffer = events.pop();
+      for (const evt of events){
+        let dataStr = '';
+        for (const line of evt.split('\n')){
+          if (line.startsWith('data:')) dataStr += line.slice(5).trim();
+        }
+        if (!dataStr) continue;
+        let data;
+        try{ data = JSON.parse(dataStr); } catch(e){ continue; }
+        if (data.type === 'content_block_delta' && data.delta && data.delta.type === 'text_delta'){
+          fullText += data.delta.text;
+          onDelta(fullText);
+        } else if (data.type === 'error'){
+          throw new Error((data.error && data.error.message) || 'Terjadi kesalahan pada stream');
+        }
+      }
+    }
+    return fullText || '(tidak ada respons)';
+  }
+
+  async function send(isRetry){
+    const text = isRetry ? lastFailedText : userInput.value.trim();
+    if (!text || isLoading) return;
+
+    lastFailedText = text;
+    const lang = langSelect.value || detectLanguage(text);
+    isLoading = true;
+    sendBtn.disabled = true;
+
+    if (!isRetry){
+      paintMessage('user', text);
+      renderLog.push({ role: 'user', text });
+      history.push({ role: 'user', content: text });
+      userInput.value = '';
+      userInput.style.height = 'auto';
+    }
+
+    addStreamingMessage();
+
+    const systemPrompt = `Kamu adalah codepilot, asisten koding AI ahli yang menjawab dalam Bahasa Indonesia yang jelas dan ringkas. Selalu tulis kode di dalam fenced code block (\`\`\`bahasa ... \`\`\`) dengan komentar singkat bila perlu. Kalau user minta file lengkap/siap pakai (misal "buatkan html game", "kirim file", "buatkan filenya"), WAJIB kasih nama file eksplisit langsung setelah nama bahasa di baris pembuka fence, formatnya persis: \`\`\`bahasa:nama-file.ext lalu isi kode lalu \`\`\` — contoh: \`\`\`html:snake-game.html . Satu fence = satu file utuh, jangan dipotong jadi beberapa pesan. Gunakan heading, list, atau tabel markdown bila membantu kejelasan. Berikan penjelasan singkat sebelum/sesudah kode, jangan bertele-tele. ${lang ? `Bahasa pemrograman yang relevan: ${lang}.` : ''}`;
+
+    try{
+      const replyText = await streamMessages({
+        model: "claude-sonnet-4-6",
+        max_tokens: 8192,
+        system: systemPrompt,
+        messages: history
+      }, updateStreamingMessage);
+
+      finalizeStreamingMessage(replyText);
+      renderLog.push({ role: 'assistant', text: replyText });
+      history.push({ role: 'assistant', content: replyText });
+      lastFailedText = null;
+
+      // auto-download kalau user eksplisit minta kirim/download file
+      if (/\b(kirim(kan)?|download|unduh)\b.*\bfile\b|\bfile\b.*\b(kirim(kan)?|download|unduh)\b/i.test(text)){
+        const lastMsg = chatInner.querySelector('.msg.ai:last-child .content');
+        if (lastMsg){
+          const count = downloadAllCodeBlocksIn(lastMsg);
+          if (count > 0){
+            addStatusLine(`${count} file otomatis terunduh.`, false);
+            setTimeout(removeStatusLine, 2000);
+          }
+        }
+      }
+
+      await saveHistory();
+
+    } catch(err){
+      removeStreamingMessage();
+      removeStatusLine();
+      if (!isRetry) history.pop(); // jangan simpan giliran user tanpa balasan yang valid ke konteks berikutnya secara ganda
+      addError('Gagal menghubungi AI: ' + err.message, true);
+    } finally {
+      isLoading = false;
+      sendBtn.disabled = false;
+      userInput.focus();
+    }
+  }
+
+  /* ============ export chat ke .md ============ */
+  function exportChatToMarkdown(){
+    if (!renderLog.length){
+      addStatusLine('Belum ada percakapan untuk diexport.', false);
+      setTimeout(removeStatusLine, 2000);
+      return;
+    }
+    let md = `# Riwayat percakapan — codepilot\n\n`;
+    renderLog.forEach(item => {
+      md += `## ${item.role === 'user' ? 'Kamu' : 'codepilot'}\n\n${item.text}\n\n`;
+    });
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `codepilot-chat-${new Date().toISOString().slice(0,10)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  /* ============ event listeners ============ */
+  userInput.addEventListener('input', () => {
+    userInput.style.height = 'auto';
+    userInput.style.height = Math.min(userInput.scrollHeight, 160) + 'px';
+  });
+
+  userInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  });
+
+  sendBtn.addEventListener('click', () => send());
+  exportBtn.addEventListener('click', exportChatToMarkdown);
+
+  document.querySelectorAll('.preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      userInput.value = btn.dataset.p;
+      userInput.dispatchEvent(new Event('input'));
+      userInput.focus();
+    });
+  });
+
+  clearBtn.addEventListener('click', async () => {
+    history = [];
+    renderLog = [];
+    lastFailedText = null;
+    chatInner.innerHTML = '';
+    chatInner.appendChild(emptyState);
+    emptyState.style.display = 'flex';
+    await wipeHistory();
+  });
+
+  loadHistory();
+</script>
+
+</body>
+</html>
